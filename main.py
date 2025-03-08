@@ -72,21 +72,11 @@ class WunderManager:
         if not self._sync:
             self.load()
 
-        new_listings = {k:v for k,v in self._new.items() if k not in self._old}
-        removed_listings = {k:v for k,v in self._old.items() if k not in self._new}
+        self._new_listings = {k:v for k,v in self._new.items() if k not in self._old}
+        self._removed_listings = {k:v for k,v in self._old.items() if k not in self._new}
 
-        return self._construct_body2(new_listings, removed_listings)
+        return self._construct_body(self._new_listings, self._removed_listings)
 
-        #pd_new = pd.DataFrame(self._new.values())
-        #pd_old = pd.DataFrame(self._old.values())
-        #if not self._old:
-        #    pd_added = pd_new
-        #    pd_removed = pd.DataFrame(None, None, pd_new.columns)
-        #else:
-        #    pd_added = pd_new[~pd_new.id.isin(pd_old.id)]
-        #    pd_removed = pd_old[~pd_old.id.isin(pd_new.id)]
-
-        #return self._construct_body(pd_added, pd_removed, pd_new)
 
     @staticmethod
     def send_mail(content, subject):
@@ -109,19 +99,7 @@ class WunderManager:
         return subprocess.getoutput(f'/usr/bin/osascript << eof\n{script}\neof')
 
 
-    def _construct_body(self, pd_added, pd_removed, pd_all):
-        body = "\n"
-        body += "NEW PROPERTIES:\n\n"
-        body += pd_added[["price", "rooms", "size", "id", "title"]].to_markdown()
-        body += "\n\n\n"
-        body += "REMOVED PROPERTIES:\n\n"
-        body += pd_removed[["price", "rooms", "size", "id", "title"]].to_markdown()
-        body += "\n\n\n\n\n\n"
-        body += "-- ALL PROPERTIES --\n\n"
-        body += pd_all.to_markdown()
-        return body
-
-    def _construct_body2(self, l_added, l_rm):
+    def _construct_body(self, l_added, l_rm):
         body = "\n"
         body += "NEW PROPERTIES:\n\n"
         body += "\n".join([self._construct_body_listing(v) for k,v in l_added.items()])
@@ -156,7 +134,9 @@ if __name__ == "__main__":
         wm = WunderManager()
         message = wm.process()
         wm.save_new()
-        WunderManager.send_mail(message, "New WunderFlats")
+
+        subject = "NEW PROPERTIES" if wm._new_listings else "NONE"
+        WunderManager.send_mail(message, f"WunderFlats: {subject}")
 
     except Exception as e:
         # Print for apple logs and send email
