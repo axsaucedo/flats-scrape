@@ -21,6 +21,9 @@ def test_no_file():
         wm.save_new()
         assert os.path.isfile("DOESNOTEXIST")
     finally:
-        os.remove("DOESNOTEXIST")
+        try:
+            os.remove("DOESNOTEXIST")
+        except:
+            pass
 
 

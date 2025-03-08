@@ -6,7 +6,8 @@ import pandas as pd
 import subprocess
 import datetime
 
-BASE_URL = "https://wunderflats.com/en/furnished-apartments/berlin"
+BASE_URL = "https://wunderflats.com"
+PATH_URL = "/en/furnished-apartments/berlin"
 QUERY_URL = "?from=2025-05-06&to=2026-04-03&scoreVariant=A&bbox=13.439029194122513%2C52.51287794429001%2C13.500998951202591%2C52.48638676462957&minSize=80"
 SAVE_FILE = "flats-cache.json"
 
@@ -34,7 +35,7 @@ class WunderManager:
         i = 0
         while True:
             i += 1
-            url = f"{BASE_URL}/{i}{QUERY_URL}"
+            url = f"{BASE_URL}{PATH_URL}/{i}{QUERY_URL}"
             r = requests.get(url)
             if not r.status_code:
                 raise Exception("Error")
@@ -71,16 +72,21 @@ class WunderManager:
         if not self._sync:
             self.load()
 
-        pd_new = pd.DataFrame(self._new.values())
-        pd_old = pd.DataFrame(self._old.values())
-        if not self._old:
-            pd_added = pd_new
-            pd_removed = pd.DataFrame(None, None, pd_new.columns)
-        else:
-            pd_added = pd_new[~pd_new.id.isin(pd_old.id)]
-            pd_removed = pd_old[~pd_old.id.isin(pd_new.id)]
+        new_listings = {k:v for k,v in self._new.items() if k not in self._old}
+        removed_listings = {k:v for k,v in self._old.items() if k not in self._new}
 
-        return self._construct_body(pd_added, pd_removed, pd_new)
+        return self._construct_body2(new_listings, removed_listings)
+
+        #pd_new = pd.DataFrame(self._new.values())
+        #pd_old = pd.DataFrame(self._old.values())
+        #if not self._old:
+        #    pd_added = pd_new
+        #    pd_removed = pd.DataFrame(None, None, pd_new.columns)
+        #else:
+        #    pd_added = pd_new[~pd_new.id.isin(pd_old.id)]
+        #    pd_removed = pd_old[~pd_old.id.isin(pd_new.id)]
+
+        #return self._construct_body(pd_added, pd_removed, pd_new)
 
     @staticmethod
     def send_mail(content, subject):
@@ -106,13 +112,33 @@ class WunderManager:
     def _construct_body(self, pd_added, pd_removed, pd_all):
         body = "\n"
         body += "NEW PROPERTIES:\n\n"
-        body += pd_added[["title", "price", "rooms", "size", "id"]].to_markdown()
+        body += pd_added[["price", "rooms", "size", "id", "title"]].to_markdown()
         body += "\n\n\n"
         body += "REMOVED PROPERTIES:\n\n"
-        body += pd_removed[["title", "price", "rooms", "size", "id"]].to_markdown()
+        body += pd_removed[["price", "rooms", "size", "id", "title"]].to_markdown()
         body += "\n\n\n\n\n\n"
         body += "-- ALL PROPERTIES --\n\n"
         body += pd_all.to_markdown()
+        return body
+
+    def _construct_body2(self, l_added, l_rm):
+        body = "\n"
+        body += "NEW PROPERTIES:\n\n"
+        body += "\n".join([self._construct_body_listing(v) for k,v in l_added.items()])
+        body += "\n\n\n"
+        body += "REMOVED PROPERTIES:\n\n"
+        body += "\n".join([self._construct_body_listing(v) for k,v in l_rm.items()])
+        body += "\n\n\n\n\n\n"
+        body += "-- ALL PROPERTIES --\n\n"
+        body += "\n".join([self._construct_body_listing(v) for k,v in self._new.items()])
+        return body
+
+    def _construct_body_listing(self, listing: dict):
+        body = f"{listing["title"]}\n"
+        body += f"Rooms: {listing["rooms"]}\t"
+        body += f"Price: €{listing["price"]}.00\t"
+        body += f"Size: {listing["size"]} m²\t/n"
+        body += f"{BASE_URL}{listing["url"]}\n"
         return body
 
     def save_new(self):
@@ -136,6 +162,4 @@ if __name__ == "__main__":
         # Print for apple logs and send email
         print(e)
         WunderManager.send_mail(f"Error: {e}", "WunderManager Script Error")
-    else:
-        WunderManager.send_mail("All good", "WunderManager All Good")
 
