@@ -1,4 +1,4 @@
-#!/Users/asaucedo/.pyenv/shims/python
+#!/Users/asaucedo/Programming/wunderflats-scrape/.venv/bin/python
 import json
 import requests
 from bs4 import BeautifulSoup
