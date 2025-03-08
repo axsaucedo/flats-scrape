@@ -1,4 +1,4 @@
-#!/Users/asaucedo/Programming/wunderflats-scrape/.venv/bin/python
+#!/Users/asaucedo/Programming/lib/workflows-etl/wunderflats-scrape/.venv/bin/python
 import json
 import requests
 from bs4 import BeautifulSoup
