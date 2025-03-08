@@ -21,8 +21,11 @@ class WunderManager:
         self._sync = True
 
     def _fetch_old(self):
-        with open(self._save_file, "r") as f:
-            listings = json.load(f)
+        try:
+            with open(self._save_file, "r") as f:
+                listings = json.load(f)
+        except FileNotFoundError:
+            return {}
         return listings
 
     def _fetch_new(self) -> dict:
@@ -70,8 +73,12 @@ class WunderManager:
 
         pd_new = pd.DataFrame(self._new.values())
         pd_old = pd.DataFrame(self._old.values())
-        pd_added = pd_new[~pd_new.id.isin(pd_old.id)]
-        pd_removed = pd_old[~pd_old.id.isin(pd_new.id)]
+        if not self._old:
+            pd_added = pd_new
+            pd_removed = pd.DataFrame(None, None, pd_new.columns)
+        else:
+            pd_added = pd_new[~pd_new.id.isin(pd_old.id)]
+            pd_removed = pd_old[~pd_old.id.isin(pd_new.id)]
 
         return self._construct_body(pd_added, pd_removed, pd_new)
 
@@ -108,7 +115,7 @@ class WunderManager:
         body += pd_all.to_markdown()
         return body
 
-    def _save_new(self):
+    def save_new(self):
         if not self._sync:
             self.load()
 
@@ -122,6 +129,7 @@ if __name__ == "__main__":
     try:
         wm = WunderManager()
         message = wm.process()
+        wm.save_new()
         WunderManager.send_mail(message, "New WunderFlats")
 
     except Exception as e:
